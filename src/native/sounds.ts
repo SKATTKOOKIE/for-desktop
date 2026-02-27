@@ -6,6 +6,9 @@ export function injectSounds(webContents: Electron.WebContents) {
         window.__soundsInjected = true;
 
         let ctx = null;
+        let currentUserId = null;
+        let currentChannelId = null;
+
         function getAudioContext() {
           if (!ctx) ctx = new AudioContext();
           return ctx;
@@ -37,6 +40,16 @@ export function injectSounds(webContents: Electron.WebContents) {
           setTimeout(() => playTone(440, 0.3), 150);
         }
 
+        function playUserJoinSound() {
+          playTone(880, 0.15);
+          setTimeout(() => playTone(1100, 0.2), 150);
+        }
+
+        function playUserLeaveSound() {
+                playTone(440, 0.15);
+          setTimeout(() => playTone(220, 0.3), 150);
+        }
+
         const OriginalWebSocket = window.WebSocket;
 
         window.WebSocket = class extends OriginalWebSocket {
@@ -47,8 +60,28 @@ export function injectSounds(webContents: Electron.WebContents) {
               try {
                 const data = JSON.parse(event.data);
 
-                if (data.type === "VoiceChannelJoin") playConnectSound();
-                if (data.type === "VoiceChannelLeave") playDisconnectSound();
+                if (data.type === "Ready" && data.users) {
+                  const self = data.users.find(u => u.relationship === "User");
+                  if (self) currentUserId = self._id;
+                }
+
+                if (data.type === "VoiceChannelJoin" && data.state?.id === currentUserId) {
+                  currentChannelId = data.id;
+                  playConnectSound();
+                }
+
+                if (data.type === "VoiceChannelLeave" && data.user === currentUserId) {
+                  currentChannelId = null;
+                  playDisconnectSound();
+                }
+
+                if (data.type === "VoiceChannelJoin" && data.state?.id !== currentUserId && currentChannelId && data.id === currentChannelId) {
+                  playUserJoinSound();
+                }
+
+                if (data.type === "VoiceChannelLeave" && data.user !== currentUserId && currentChannelId && data.id === currentChannelId) {
+                  playUserLeaveSound();
+                }
 
               } catch {}
             });
