@@ -50,6 +50,11 @@ export function injectSounds(webContents: Electron.WebContents) {
           setTimeout(() => playTone(220, 0.3), 150);
         }
 
+        function playMentionSound() {
+          playTone(1200, 0.1, 0.08);
+          setTimeout(() => playTone(1200, 0.15, 0.08), 120);
+        }
+
         const OriginalWebSocket = window.WebSocket;
 
         window.WebSocket = class extends OriginalWebSocket {
@@ -81,6 +86,11 @@ export function injectSounds(webContents: Electron.WebContents) {
 
                 if (data.type === "VoiceChannelLeave" && data.user !== currentUserId && currentChannelId && data.id === currentChannelId) {
                   playUserLeaveSound();
+                }
+
+                if (data.type === "Message" && data.role_mentions?.length > 0 && data.member?.roles?.length > 0) {
+                  const mentioned = data.role_mentions.some(roleId => data.member.roles.includes(roleId));
+                  if (mentioned) playMentionSound();
                 }
 
               } catch {}
