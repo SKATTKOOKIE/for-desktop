@@ -110,6 +110,31 @@ export function injectSounds(webContents: Electron.WebContents) {
                   playUserLeaveSound();
                 }
 
+                if (data.type === "Message" && data.mentions?.includes(currentUserId) && data.author !== currentUserId) {
+                  playMentionSound();
+                  const cachedName = userNameCache[data.author];
+                  if (cachedName) {
+                    const myName = userNameCache[currentUserId] || 'you';
+                    const content = data.content?.replace(/<@[^>]+>/g, '@' + myName).trim() || "New message";
+                    __showMentionToast(cachedName, 'mention', content);
+                  } else {
+                    // fetch user from API if not cached
+                    fetch('https://api.revolt.chat/users/' + data.author)
+                      .then(r => r.json())
+                      .then(user => {
+                        const name = user.username || data.author;
+                        userNameCache[data.author] = name;
+                        const myName = userNameCache[currentUserId] || 'you';
+                        const content = data.content?.replace(/<@[^>]+>/g, '@' + myName).trim() || "New message";
+                        __showMentionToast(name, 'mention', content);
+                      })
+                      .catch(() => {
+                        const content = data.content?.replace(/<@[^>]+>/g, '').trim() || "New message";
+                        __showMentionToast(data.author, 'mention', content);
+                      });
+                  }
+                }
+
                 if (data.type === "Message" && data.role_mentions?.length > 0 && data.member?.roles?.length > 0) {
                   const matchedRoleId = data.role_mentions.find(roleId => data.member.roles.includes(roleId));
                   if (matchedRoleId) {
