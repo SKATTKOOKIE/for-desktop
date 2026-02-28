@@ -1,3 +1,5 @@
+import { toastScript } from "./toasts";
+
 export function injectSounds(webContents: Electron.WebContents) {
   webContents.on("did-finish-load", () => {
     webContents.executeJavaScript(`
@@ -5,9 +7,13 @@ export function injectSounds(webContents: Electron.WebContents) {
         if (window.__soundsInjected) return;
         window.__soundsInjected = true;
 
+        ${toastScript}
+
         let ctx = null;
         let currentUserId = null;
         let currentChannelId = null;
+        const roleNameCache = {};
+        const userNameCache = {};
 
         function getAudioContext() {
           if (!ctx) ctx = new AudioContext();
@@ -41,13 +47,11 @@ export function injectSounds(webContents: Electron.WebContents) {
         }
 
         function playUserJoinSound() {
-          playTone(880, 0.15);
-          setTimeout(() => playTone(1100, 0.2), 150);
+          playTone(880, 0.15, 0.05);
         }
 
         function playUserLeaveSound() {
-                playTone(440, 0.15);
-          setTimeout(() => playTone(220, 0.3), 150);
+          playTone(440, 0.15, 0.05);
         }
 
         function playMentionSound() {
@@ -65,9 +69,27 @@ export function injectSounds(webContents: Electron.WebContents) {
               try {
                 const data = JSON.parse(event.data);
 
-                if (data.type === "Ready" && data.users) {
-                  const self = data.users.find(u => u.relationship === "User");
-                  if (self) currentUserId = self._id;
+                if (data.type === "Ready") {
+                  if (data.users) {
+                    const self = data.users.find(u => u.relationship === "User");
+                    if (self) currentUserId = self._id;
+                    for (const user of data.users) {
+                      if (user._id && user.username) userNameCache[user._id] = user.username;
+                    }
+                  }
+                  if (data.servers) {
+                    for (const server of data.servers) {
+                      if (server.roles) {
+                        for (const role of Object.values(server.roles)) {
+                          roleNameCache[role._id] = role.name;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (data.type === "UserUpdate" && data.id && data.data?.username) {
+                  userNameCache[data.id] = data.data.username;
                 }
 
                 if (data.type === "VoiceChannelJoin" && data.state?.id === currentUserId) {
@@ -89,8 +111,14 @@ export function injectSounds(webContents: Electron.WebContents) {
                 }
 
                 if (data.type === "Message" && data.role_mentions?.length > 0 && data.member?.roles?.length > 0) {
-                  const mentioned = data.role_mentions.some(roleId => data.member.roles.includes(roleId));
-                  if (mentioned) playMentionSound();
+                  const matchedRoleId = data.role_mentions.find(roleId => data.member.roles.includes(roleId));
+                  if (matchedRoleId) {
+                    playMentionSound();
+                    const senderName = userNameCache[data.author] || data.author || "Someone";
+                    const roleName = roleNameCache[matchedRoleId] || matchedRoleId;
+                    const content = data.content?.replace(/<%[^>]+>/g, '@' + roleName).trim() || "New message";
+                    __showMentionToast(senderName, roleName, content);
+                  }
                 }
 
               } catch {}
