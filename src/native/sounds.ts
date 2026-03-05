@@ -114,9 +114,10 @@ export function injectSounds(webContents: Electron.WebContents) {
                   playMentionSound();
                   const cachedName = userNameCache[data.author];
                   if (cachedName) {
-                    const myName = userNameCache[currentUserId] || 'you';
-                    const content = data.content?.replace(/<@[^>]+>/g, '@' + myName).trim() || "New message";
-                    __showMentionToast(cachedName, 'mention', content);
+                  const myName = userNameCache[currentUserId] || 'you';
+                  const content = data.content?.replace(/<@[^>]+>/g, '@' + myName).trim() || "New message";
+                  window.native.notify('Mentioned by ' + cachedName, content);  // cachedName not senderName
+                  __showMentionToast(cachedName, 'mention', content);
                   } else {
                     // fetch user from API if not cached
                     fetch('https://api.revolt.chat/users/' + data.author)
@@ -126,10 +127,12 @@ export function injectSounds(webContents: Electron.WebContents) {
                         userNameCache[data.author] = name;
                         const myName = userNameCache[currentUserId] || 'you';
                         const content = data.content?.replace(/<@[^>]+>/g, '@' + myName).trim() || "New message";
+                        window.native.notify('Mentioned by ' + name, content); 
                         __showMentionToast(name, 'mention', content);
                       })
                       .catch(() => {
                         const content = data.content?.replace(/<@[^>]+>/g, '').trim() || "New message";
+                        window.native.notify('Mentioned by someone', content);
                         __showMentionToast(data.author, 'mention', content);
                       });
                   }
@@ -142,6 +145,7 @@ export function injectSounds(webContents: Electron.WebContents) {
                     const senderName = userNameCache[data.author] || data.author || "Someone";
                     const roleName = roleNameCache[matchedRoleId] || matchedRoleId;
                     const content = data.content?.replace(/<%[^>]+>/g, '@' + roleName).trim() || "New message";
+                    window.native.notify('Role mention: @' + roleName, senderName + ': ' + content);
                     __showMentionToast(senderName, roleName, content);
                   }
                 }

@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld("native", {
   close: () => ipcRenderer.send("close"),
 
   setBadgeCount: (count: number) => ipcRenderer.send("setBadgeCount", count),
+  notify: (title: string, body: string) => ipcRenderer.send("notify", { title, body }),
 });

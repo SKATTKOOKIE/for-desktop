@@ -2,6 +2,7 @@ import { IUpdateInfo, updateElectronApp } from "update-electron-app";
 
 import { BrowserWindow, Notification, app, shell } from "electron";
 import started from "electron-squirrel-startup";
+import { initNotifications } from "./native/notifications";
 
 import { autoLaunch } from "./native/autoLaunch";
 import { config } from "./native/config";
@@ -42,6 +43,7 @@ if (acquiredLock) {
   app.on("ready", () => {
     // create window and application contexts
     createMainWindow();
+    initNotifications(); 
 
     // enable auto start on Windows and MacOS
     if (config.firstLaunch) {
